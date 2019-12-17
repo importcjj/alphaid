@@ -1,7 +1,16 @@
-const MAXLEN: usize = 6;
+const MINLEN: usize = 6;
 const BASE: usize = 62;
 static ALPHABET: &'static [u8;BASE]= b"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+
+
+fn main() {
+    let x = encode(1).unwrap();
+    println!("{:?}", std::str::from_utf8(&x));
+    
+    let i = decode(b"baaaab").unwrap();
+    println!("{}", i);
+}
 
 #[derive(Debug)]
 pub struct EncodeError;
@@ -11,19 +20,18 @@ pub struct EncodeError;
 pub struct DecodeError;
 
 pub fn encode(mut n: i64) -> Result<Vec<u8>, EncodeError> {
-    let pad = MAXLEN - 1;
+    let pad = MINLEN - 1;
     let mut out = vec![];
     if pad > 0 {
         n += BASE.pow(pad as u32) as i64;
     }
     
-    let mut t = (n as f64).log(BASE as f64) as i64;
-    for _ in (0..=t).rev() {
-        let bcp = BASE.pow(t as u32) as i64;
-        let a = (n / bcp) % BASE as i64;
+    let length = (n as f64).log(BASE as f64) as i64;
+    for i in (0..=length).rev() {
+        let bcp = BASE.pow(i as u32) as i64;
+        let a = n / bcp;
         out.push(ALPHABET[a as usize]);
         n -= a * bcp;
-        t -= 1;
     }
     Ok(out)
 }
@@ -42,12 +50,12 @@ pub fn decode(s: &[u8]) -> Result<i64, DecodeError> {
         let b = l - i;
         let bcp = BASE.pow(b as u32) as i64;
         match ALPHABET.iter().position(|&x| x == s[i]) {
-            Some(i) => r += bcp * i as i64,
+            Some(t) => r += bcp * t as i64,
             None => return Err(DecodeError)
         }
     }
 
-    let pad = MAXLEN - 1;
+    let pad = MINLEN - 1;
     if pad > 0 {
         r -= BASE.pow(pad as u32) as i64;
     }
