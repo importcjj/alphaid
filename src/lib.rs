@@ -1,4 +1,4 @@
-//! Used to generate a unique id similar to youtube.
+//! Generate Youtube-Like IDs with Rust.
 //!
 //! # Example
 //!
