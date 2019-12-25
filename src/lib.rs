@@ -1,3 +1,29 @@
+//! Used to generate a unique id similar to youtube.
+//!
+//! # Example
+//!
+//! ```rust
+//! use alphaid::AlphaId;
+//!
+//! let alphaid = AlphaId::new();
+//! assert_eq!(alphaid.encode(0), b"a");
+//! assert_eq!(alphaid.encode(1), b"b");
+//! assert_eq!(alphaid.encode(1350997667), b"90F7qb");
+//!
+//! assert_eq!(alphaid.decode(b"a"), Ok(0));
+//! assert_eq!(alphaid.decode(b"b"), Ok(1));
+//! assert_eq!(alphaid.decode(b"90F7qb"), Ok(1350997667));
+//!
+//! let alphaid = AlphaId::builder().pad(2).build();
+//! assert_eq!(alphaid.encode(0), b"ab");
+//! assert_eq!(alphaid.decode(b"ab"), Ok(0));
+//!
+//! let alphaid = AlphaId::builder().pad(2)
+//!     .chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ".as_bytes().to_vec())
+//!     .build();
+//! assert_eq!(alphaid.encode(0), b"AB");
+//! assert_eq!(alphaid.decode(b"AB"), Ok(0));
+//!```
 use std::collections::HashMap;
 
 static DEFAULT_SEED: &'static str =
@@ -9,6 +35,7 @@ pub enum DecodeError {
     UnexpectedChar,
 }
 
+/// A builder for a `AlphaId`.
 pub struct Builder {
     chars: Option<Vec<u8>>,
     pad: Option<u32>,
@@ -24,26 +51,50 @@ impl Default for Builder {
 }
 
 impl Builder {
+    /// Constructs a new `Builder`.
+    ///
+    /// Parameters are initialized with their default values.
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Sets the characters set.
+    /// 
+    /// Default to `abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-_`.
+    ///
+    /// # Panics
+    /// 
+    /// Panics if chars' size is less than `16`.
     pub fn chars(mut self, chars: Vec<u8>) -> Self {
         assert!(chars.len() > 16, "chars size must large than 16");
         self.chars = Some(chars);
         self
     }
 
+    /// Sets the pad which specifies the minimum 
+    /// length of the encoded result.Result
+    ///
+    /// Default to 1.
+    ///
+    /// # Panics
+    ///
+    /// Panics if pad is less than 1.
     pub fn pad(mut self, pad: u32) -> Self {
         assert!(pad > 0, "pad must large than 1");
         self.pad = Some(pad);
         self
     }
 
+    /// Consumes the builder, returning a `AlphaId`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there are duplicate characters in chars.
     pub fn build(self) -> AlphaId {
         let chars = self
             .chars
             .unwrap_or_else(|| DEFAULT_SEED.as_bytes().to_vec());
+        
         let index: HashMap<u8, u128> = chars
             .iter()
             .enumerate()
@@ -66,6 +117,7 @@ impl Builder {
     }
 }
 
+/// Used for encoding and decoding.
 pub struct AlphaId {
     chars: Vec<u8>,
     index: HashMap<u8, u128>,
@@ -75,14 +127,29 @@ pub struct AlphaId {
 }
 
 impl AlphaId {
+    /// Returns a builder type to configure a new `AlphaId`.
     pub fn builder() -> Builder {
         Builder::new()
     }
 
+    /// Creates a new `AlphaId` with a default configuration.
     pub fn new() -> Self {
         Builder::new().build()
     }
 
+
+    /// Encode the numbers.
+    ///
+    /// # Example
+    /// 
+    /// ```rust
+    /// use alphaid::AlphaId;
+    ///
+    /// let alphaid = AlphaId::new();
+    /// assert_eq!(alphaid.encode(0), b"a");
+    /// assert_eq!(alphaid.encode(1), b"b");
+    /// assert_eq!(alphaid.encode(1350997667), b"90F7qb");
+    /// ```
     pub fn encode(&self, mut n: u128) -> Vec<u8> {
         let mut out = vec![];
         let mut i = 0;
@@ -108,6 +175,18 @@ impl AlphaId {
         out
     }
 
+    /// Decode into numbers.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use alphaid::AlphaId;
+    ///
+    /// let alphaid = AlphaId::new();
+    /// assert_eq!(alphaid.decode(b"a"), Ok(0));
+    /// assert_eq!(alphaid.decode(b"b"), Ok(1));
+    /// assert_eq!(alphaid.decode(b"90F7qb"), Ok(1350997667)); 
+    ///```
     pub fn decode<V: AsRef<[u8]>>(&self, v: V) -> Result<u128, DecodeError> {
         let v = v.as_ref();
         let mut i = 0;
