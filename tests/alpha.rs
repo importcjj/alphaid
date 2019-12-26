@@ -7,6 +7,7 @@ fn test_encode_basic() {
     assert_eq!(alphaid.encode(62), b"-");
     assert_eq!(alphaid.encode(63), b"_");
     assert_eq!(alphaid.encode(64), b"ab");
+    assert_eq!(alphaid.encode(20191226), b"W5bnb");
     assert_eq!(alphaid.encode(u128::max_value()), b"_____________________d");
 }
 
@@ -18,6 +19,7 @@ fn test_decode_basic() {
     assert_eq!(alphaid.decode(b"b"), Ok(1));
     assert_eq!(alphaid.decode(b"-"), Ok(62));
     assert_eq!(alphaid.decode(b"_"), Ok(63));
+    assert_eq!(alphaid.decode(b"W5bnb"), Ok(20191226));
     assert_eq!(
         alphaid.decode(b"_____________________d"),
         Ok(u128::max_value())
@@ -88,4 +90,30 @@ fn test_decode_with_pad() {
         alphaid.decode(b"_aaaaaaaaaaaaaaaaaaaae"),
         Ok(u128::max_value())
     );
+}
+
+#[test]
+fn test_pad() {
+    let x = AlphaId::builder().build();
+    let y = AlphaId::builder().pad(2).build();
+    let z = AlphaId::builder().pad(5).build();
+
+    assert_eq!(x.encode(64), y.encode(0));
+    assert_eq!(x.encode(64u128.pow(4)), z.encode(0));
+}
+
+#[test]
+#[should_panic]
+fn test_invalid_pad() {
+    let x = AlphaId::builder().pad(0).build();
+    x.encode(20191226);
+}
+
+#[test]
+#[should_panic]
+fn test_duplicated_chars() {
+    let chars = "abcda".as_bytes().to_vec();
+    let x = AlphaId::builder().chars(chars).build();
+
+    x.encode(20191226);
 }

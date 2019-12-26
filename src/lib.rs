@@ -1,29 +1,47 @@
 //! Generate Youtube-Like IDs with Rust.
-//!
-//! # Example
+//! 
+//! ## Basic Usage
 //!
 //! ```rust
 //! use alphaid::AlphaId;
 //!
 //! let alphaid = AlphaId::new();
-//! assert_eq!(alphaid.encode(0), b"a");
-//! assert_eq!(alphaid.encode(1), b"b");
 //! assert_eq!(alphaid.encode(1350997667), b"90F7qb");
-//!
-//! assert_eq!(alphaid.decode(b"a"), Ok(0));
-//! assert_eq!(alphaid.decode(b"b"), Ok(1));
 //! assert_eq!(alphaid.decode(b"90F7qb"), Ok(1350997667));
+//! ```
 //!
-//! let alphaid = AlphaId::builder().pad(2).build();
-//! assert_eq!(alphaid.encode(0), b"ab");
-//! assert_eq!(alphaid.decode(b"ab"), Ok(0));
+//! ## Padding
+//! Specifies the minimum length of the encoded result.
+//! 
+//! ```rust
+//! use alphaid::AlphaId;
 //!
+//! let alphaid = AlphaId::new();
+//! assert_eq!(alphaid.encode(0), b"a");
+//! assert_eq!(alphaid.decode(b"a"), Ok(0));
+//!
+//!
+//！ let alphaid = AlphaId::builder().pad(5).build();
+//！ assert_eq!(alphaid.encode(0), b"aaaab");
+//！ assert_eq!(alphaid.decode(b"aaaab"), Ok(0));
+//! ```
+//!
+//! ## Charaters set
+//! Sets the characters set. Default to `abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-_`
+//!
+//! ```rust
+//! use alphaid::AlphaId;
 //! let alphaid = AlphaId::builder().pad(2)
 //!     .chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ".as_bytes().to_vec())
 //!     .build();
 //! assert_eq!(alphaid.encode(0), b"AB");
 //! assert_eq!(alphaid.decode(b"AB"), Ok(0));
-//!```
+//! ```
+//!
+//!
+//! ## Reference
+//!
+//! [Create Youtube-Like IDs](https://kvz.io/create-short-ids-with-php-like-youtube-or-tinyurl.html)
 use std::collections::HashMap;
 
 static DEFAULT_SEED: &'static str =
@@ -72,13 +90,13 @@ impl Builder {
     }
 
     /// Sets the pad which specifies the minimum 
-    /// length of the encoded result.Result
+    /// length of the encoded result.
     ///
     /// Default to 1.
     ///
     /// # Panics
     ///
-    /// Panics if pad is less than 1.
+    /// Panics if pad is less than 0.
     pub fn pad(mut self, pad: u32) -> Self {
         assert!(pad > 0, "pad must large than 1");
         self.pad = Some(pad);
