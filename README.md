@@ -17,6 +17,8 @@ assert_eq!(alphaid.decode(b"90F7qb"), Ok(1350997667));
 ```
 
 ## Padding
+Specifies the minimum length of the encoded result.
+
 ```rust
 use alphaid::AlphaId;
 
@@ -31,6 +33,7 @@ assert_eq!(alphaid.decode(b"aaaab"), Ok(0));
 ```
 
 ## Charaters set
+Sets the characters set. Default to `abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-_`
 
 ```rust
 let alphaid = AlphaId::builder().pad(2)
