@@ -1,5 +1,5 @@
 //! Generate Youtube-Like IDs with Rust.
-//! 
+//!
 //! ## Basic Usage
 //!
 //! ```rust
@@ -12,7 +12,7 @@
 //!
 //! ## Padding
 //! Specifies the minimum length of the encoded result.
-//! 
+//!
 //! ```rust
 //! use alphaid::AlphaId;
 //!
@@ -21,7 +21,7 @@
 //! assert_eq!(alphaid.decode(b"a"), Ok(0));
 //!
 //!
-//! let alphaid = AlphaId::<u32>::builder().pad(5).build();
+//! let alphaid = AlphaId::<u128>::builder().pad(5).build();
 //! assert_eq!(alphaid.encode(0), Ok(b"aaaab".to_vec()));
 //! assert_eq!(alphaid.decode(b"aaaab"), Ok(0));
 //! ```
@@ -47,7 +47,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 pub trait UnsignedInteger:
-    Integer + Bounded + ToPrimitive + Clone + FromPrimitive + NumCast + Copy
+    Integer + Bounded + ToPrimitive + FromPrimitive + NumCast + Copy
 {
 }
 
@@ -63,6 +63,7 @@ static DEFAULT_SEED: &'static str =
 #[derive(Debug, PartialEq)]
 pub enum AlphaIdError {
     InvalidNumber,
+    PadMissed,
     Overflow,
     UnexpectedChar,
 }
@@ -105,7 +106,7 @@ impl<T: UnsignedInteger> Builder<T> {
         self
     }
 
-    /// Sets the pad which specifies the minimum 
+    /// Sets the pad which specifies the minimum
     /// length of the encoded result.
     ///
     /// Default to 1.
@@ -139,7 +140,7 @@ impl<T: UnsignedInteger> Builder<T> {
             chars.len() == index.len(),
             "duplicate characters are not allowed"
         );
-        let base = T::from_usize(chars.len()).expect("primitive number type");
+        let base = T::from_usize(chars.len()).expect("primitive number types");
         let a: f64 = <f64 as NumCast>::from(T::max_value()).unwrap();
         let b: f64 = <f64 as NumCast>::from(base.clone()).unwrap();
         let max_pow_i = a.log(b) as u32;
@@ -228,21 +229,26 @@ impl<T: UnsignedInteger> AlphaId<T> {
         let mut n = T::zero();
         let mut unpad = self.pad > 1;
         let mut prev = T::zero();
-        let num63 = T::from_u32(63).unwrap();
 
         while i < v.len() {
             match self.index.get(&v[i as usize]) {
                 Some(t) => {
                     let mut x = *t;
 
-                    if unpad && i + 1 >= self.pad as usize {
-                        if i > 1 {
-                            n = n + num::pow(self.base, i - 1) * (num63 - prev);
+                    if unpad {
+                        if x.is_zero() && i + 1 == v.len() {
+                            return Err(AlphaIdError::PadMissed);
                         }
 
-                        if !x.is_zero() {
-                            unpad = false;
-                            x = x - T::one();
+                        if i + 1 >= self.pad as usize {
+                            if i > 1 && i + 1 > self.pad as usize {
+                                n = n + num::pow(self.base, i - 1) * (self.base - prev - T::one());
+                            }
+
+                            if !x.is_zero() {
+                                unpad = false;
+                                x = x - T::one();
+                            }
                         }
                     };
 

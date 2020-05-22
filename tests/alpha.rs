@@ -8,7 +8,10 @@ fn test_encode_basic() {
     assert_eq!(alphaid.encode(63), Ok(b"_".to_vec()));
     assert_eq!(alphaid.encode(64), Ok(b"ab".to_vec()));
     assert_eq!(alphaid.encode(20191226), Ok(b"W5bnb".to_vec()));
-    assert_eq!(alphaid.encode(u128::max_value()), Ok(b"_____________________d".to_vec()));
+    assert_eq!(
+        alphaid.encode(u128::max_value()),
+        Ok(b"_____________________d".to_vec())
+    );
 }
 
 #[test]
@@ -87,11 +90,16 @@ fn test_encode_with_pad2() {
 
 #[test]
 fn test_decode_with_pad() {
-    let alphaid = AlphaId::builder().pad(2).build();
+    let alphaid = AlphaId::<u128>::builder().pad(2).build();
+
     assert_eq!(alphaid.decode(b"ab"), Ok(0));
     assert_eq!(alphaid.decode(b"bb"), Ok(1));
     assert_eq!(alphaid.decode(b"-b"), Ok(62));
+
+    assert_eq!(alphaid.decode(b"abb"), Ok(4096));
     assert_eq!(alphaid.decode(b"aab"), Ok(4032));
+    assert_eq!(alphaid.encode(4096), Ok(b"abb".to_vec()));
+
     assert_eq!(
         alphaid.decode(b"_aaaaaaaaaaaaaaaaaaaae"),
         Ok(u128::max_value())
@@ -106,6 +114,15 @@ fn test_pad() {
 
     assert_eq!(x.encode(64), y.encode(0));
     assert_eq!(x.encode(64u128.pow(4)), z.encode(0));
+}
+
+#[test]
+fn test_duplicate_result() {
+    let a: AlphaId<u32> = AlphaId::builder().pad(4).build();
+    for i in 1..u32::max_value() {
+        let v = a.encode(i).unwrap();
+        assert_eq!(a.decode(&v), Ok(i));
+    }
 }
 
 #[test]
