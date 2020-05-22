@@ -1,6 +1,6 @@
 [package]
 name = "alphaid"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["importcjj <importcjj@gmail.com>"]
 edition = "2018"
 readme = "README.md"
@@ -13,3 +13,4 @@ documentation = "https://docs.rs/alphaid"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+num = "0.2.1"

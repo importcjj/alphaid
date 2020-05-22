@@ -1,13 +1,16 @@
-use alphaid::{AlphaId, DecodeError};
+use alphaid::{AlphaId, AlphaIdError};
 #[test]
 fn test_encode_basic() {
     let alphaid = AlphaId::new();
-    assert_eq!(alphaid.encode(0), b"a");
-    assert_eq!(alphaid.encode(1), b"b");
-    assert_eq!(alphaid.encode(62), b"-");
-    assert_eq!(alphaid.encode(63), b"_");
-    assert_eq!(alphaid.encode(64), b"ab");
-    assert_eq!(alphaid.encode(u128::max_value()), b"_____________________d");
+    assert_eq!(alphaid.encode(0), Ok(b"a".to_vec()));
+    assert_eq!(alphaid.encode(1), Ok(b"b".to_vec()));
+    assert_eq!(alphaid.encode(62), Ok(b"-".to_vec()));
+    assert_eq!(alphaid.encode(63), Ok(b"_".to_vec()));
+    assert_eq!(alphaid.encode(64), Ok(b"ab".to_vec()));
+    assert_eq!(
+        alphaid.encode(u128::max_value()),
+        Ok(b"_____________________d".to_vec())
+    );
 }
 
 #[test]
@@ -26,55 +29,61 @@ fn test_decode_basic() {
 
 #[test]
 fn test_decode_unexpected_char() {
-    let alphaid = AlphaId::new();
-    assert_eq!(alphaid.decode(b"]a"), Err(DecodeError::UnexpectedChar));
-    assert_eq!(alphaid.decode(b"b!"), Err(DecodeError::UnexpectedChar));
-    assert_eq!(alphaid.decode(b"/-"), Err(DecodeError::UnexpectedChar));
+    let alphaid: AlphaId = AlphaId::new();
+    assert_eq!(alphaid.decode(b"]a"), Err(AlphaIdError::UnexpectedChar));
+    assert_eq!(alphaid.decode(b"b!"), Err(AlphaIdError::UnexpectedChar));
+    assert_eq!(alphaid.decode(b"/-"), Err(AlphaIdError::UnexpectedChar));
     assert_eq!(
         alphaid.decode(b"p83FPRwvWJs+"),
-        Err(DecodeError::UnexpectedChar)
+        Err(AlphaIdError::UnexpectedChar)
     );
 }
 
 #[test]
 fn test_decode_overflow() {
-    let alphaid = AlphaId::new();
+    let alphaid = AlphaId::<u128>::new();
     assert_eq!(
         alphaid.decode(b"opoasdfasdfZIUDIz1WwBXg"),
-        Err(DecodeError::Overflow)
+        Err(AlphaIdError::Overflow)
     );
     assert_eq!(
         alphaid.decode(b"xASDF_fdaORGAiXysf5aNe0"),
-        Err(DecodeError::Overflow)
+        Err(AlphaIdError::Overflow)
     );
     assert_eq!(
         alphaid.decode(b"fda_xfdsa-Pb7N_x_ZfkqFc6k"),
-        Err(DecodeError::Overflow)
+        Err(AlphaIdError::Overflow)
     );
     assert_eq!(
         alphaid.decode(b"IfdaxpqzljhIQi25kNu8MdY"),
-        Err(DecodeError::Overflow)
+        Err(AlphaIdError::Overflow)
     );
 }
 
 #[test]
 fn test_encode_with_pad() {
     let alphaid = AlphaId::builder().pad(2).build();
-    assert_eq!(alphaid.encode(0), b"ab");
-    assert_eq!(alphaid.encode(1), b"bb");
-    assert_eq!(alphaid.encode(62), b"-b");
-    assert_eq!(alphaid.encode(63), b"_b");
-    assert_eq!(alphaid.encode(u128::max_value()), b"_aaaaaaaaaaaaaaaaaaaae");
+    assert_eq!(alphaid.encode(0), Ok(b"ab".to_vec()));
+    assert_eq!(alphaid.encode(1), Ok(b"bb".to_vec()));
+    assert_eq!(alphaid.encode(62), Ok(b"-b".to_vec()));
+    assert_eq!(alphaid.encode(63), Ok(b"_b".to_vec()));
+    assert_eq!(
+        alphaid.encode(u128::max_value()),
+        Ok(b"_aaaaaaaaaaaaaaaaaaaae".to_vec())
+    );
 }
 
 #[test]
 fn test_encode_with_pad2() {
     let alphaid = AlphaId::builder().pad(5).build();
-    assert_eq!(alphaid.encode(0), b"aaaab");
-    assert_eq!(alphaid.encode(1), b"baaab");
-    assert_eq!(alphaid.encode(62), b"-aaab");
-    assert_eq!(alphaid.encode(63), b"_aaab");
-    assert_eq!(alphaid.encode(u128::max_value()), b"____aaaaaaaaaaaaaaaaae");
+    assert_eq!(alphaid.encode(0), Ok(b"aaaab".to_vec()));
+    assert_eq!(alphaid.encode(1), Ok(b"baaab".to_vec()));
+    assert_eq!(alphaid.encode(62), Ok(b"-aaab".to_vec()));
+    assert_eq!(alphaid.encode(63), Ok(b"_aaab".to_vec()));
+    assert_eq!(
+        alphaid.encode(u128::max_value()),
+        Ok(b"____aaaaaaaaaaaaaaaaae".to_vec())
+    );
 }
 
 #[test]

@@ -5,52 +5,68 @@
 //! ```rust
 //! use alphaid::AlphaId;
 //!
-//! let alphaid = AlphaId::new();
-//! assert_eq!(alphaid.encode(0), b"a");
-//! assert_eq!(alphaid.encode(1), b"b");
-//! assert_eq!(alphaid.encode(1350997667), b"90F7qb");
+//! let alphaid = AlphaId::<u32>::new();
+//! assert_eq!(alphaid.encode(0), Ok(b"a".to_vec()));
+//! assert_eq!(alphaid.encode(1), Ok(b"b".to_vec()));
+//! assert_eq!(alphaid.encode(1350997667), Ok(b"90F7qb".to_vec()));
 //!
 //! assert_eq!(alphaid.decode(b"a"), Ok(0));
 //! assert_eq!(alphaid.decode(b"b"), Ok(1));
 //! assert_eq!(alphaid.decode(b"90F7qb"), Ok(1350997667));
 //!
-//! let alphaid = AlphaId::builder().pad(2).build();
-//! assert_eq!(alphaid.encode(0), b"ab");
+//! let alphaid = AlphaId::<u32>::builder().pad(2).build();
+//! assert_eq!(alphaid.encode(0), Ok(b"ab".to_vec()));
 //! assert_eq!(alphaid.decode(b"ab"), Ok(0));
 //!
-//! let alphaid = AlphaId::builder().pad(2)
+//! let alphaid = AlphaId::<u32>::builder().pad(2)
 //!     .chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ".as_bytes().to_vec())
 //!     .build();
-//! assert_eq!(alphaid.encode(0), b"AB");
+//! assert_eq!(alphaid.encode(0), Ok(b"AB".to_vec()));
 //! assert_eq!(alphaid.decode(b"AB"), Ok(0));
 //!```
+use num::{Bounded, FromPrimitive, Integer, NumCast, ToPrimitive};
 use std::collections::HashMap;
+use std::marker::PhantomData;
+
+pub trait UnsignedInteger:
+    Integer + Bounded + ToPrimitive + Clone + FromPrimitive + NumCast + Copy
+{
+}
+
+impl UnsignedInteger for u16 {}
+impl UnsignedInteger for u32 {}
+impl UnsignedInteger for u64 {}
+impl UnsignedInteger for usize {}
+impl UnsignedInteger for u128 {}
 
 static DEFAULT_SEED: &'static str =
     "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
 
 #[derive(Debug, PartialEq)]
-pub enum DecodeError {
+pub enum AlphaIdError {
+    InvalidNumber,
     Overflow,
     UnexpectedChar,
 }
 
 /// A builder for a `AlphaId`.
-pub struct Builder {
+pub struct Builder<T: UnsignedInteger = u128> {
     chars: Option<Vec<u8>>,
     pad: Option<u32>,
+    _data: PhantomData<T>,
 }
 
-impl Default for Builder {
+impl<T: UnsignedInteger> Default for Builder<T> {
     fn default() -> Self {
         Self {
             chars: None,
             pad: None,
+            _data: PhantomData,
         }
     }
 }
 
-impl Builder {
+impl<T: UnsignedInteger> Builder<T> {
     /// Constructs a new `Builder`.
     ///
     /// Parameters are initialized with their default values.
@@ -59,11 +75,11 @@ impl Builder {
     }
 
     /// Sets the characters set.
-    /// 
+    ///
     /// Default to `abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-_`.
     ///
     /// # Panics
-    /// 
+    ///
     /// Panics if chars' size is less than `16`.
     pub fn chars(mut self, chars: Vec<u8>) -> Self {
         assert!(chars.len() > 16, "chars size must large than 16");
@@ -71,7 +87,7 @@ impl Builder {
         self
     }
 
-    /// Sets the pad which specifies the minimum 
+    /// Sets the pad which specifies the minimum
     /// length of the encoded result.Result
     ///
     /// Default to 1.
@@ -90,23 +106,25 @@ impl Builder {
     /// # Panics
     ///
     /// Panics if there are duplicate characters in chars.
-    pub fn build(self) -> AlphaId {
+    pub fn build(self) -> AlphaId<T> {
         let chars = self
             .chars
             .unwrap_or_else(|| DEFAULT_SEED.as_bytes().to_vec());
-        
-        let index: HashMap<u8, u128> = chars
+
+        let index: HashMap<u8, T> = chars
             .iter()
             .enumerate()
-            .map(|(i, v)| (*v, i as u128))
+            .map(|(i, v)| (*v, T::from_usize(i).unwrap()))
             .collect();
 
         assert!(
             chars.len() == index.len(),
             "duplicate characters are not allowed"
         );
-        let base = chars.len() as u128;
-        let max_pow_i = (u128::max_value() as f64).log(base as f64) as u32;
+        let base = T::from_usize(chars.len()).expect("primitive number type");
+        let a: f64 = <f64 as NumCast>::from(T::max_value()).unwrap();
+        let b: f64 = <f64 as NumCast>::from(base.clone()).unwrap();
+        let max_pow_i = a.log(b) as u32;
         AlphaId {
             chars,
             index,
@@ -118,17 +136,17 @@ impl Builder {
 }
 
 /// Used for encoding and decoding.
-pub struct AlphaId {
+pub struct AlphaId<T: UnsignedInteger = u128> {
     chars: Vec<u8>,
-    index: HashMap<u8, u128>,
-    base: u128,
+    index: HashMap<u8, T>,
+    base: T,
     pad: u32,
     max_pow_i: u32,
 }
 
-impl AlphaId {
+impl<T: UnsignedInteger> AlphaId<T> {
     /// Returns a builder type to configure a new `AlphaId`.
-    pub fn builder() -> Builder {
+    pub fn builder() -> Builder<T> {
         Builder::new()
     }
 
@@ -137,29 +155,28 @@ impl AlphaId {
         Builder::new().build()
     }
 
-
     /// Encode the numbers.
     ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use alphaid::AlphaId;
     ///
-    /// let alphaid = AlphaId::new();
-    /// assert_eq!(alphaid.encode(0), b"a");
-    /// assert_eq!(alphaid.encode(1), b"b");
-    /// assert_eq!(alphaid.encode(1350997667), b"90F7qb");
+    /// let alphaid = AlphaId::<u32>::new();
+    /// assert_eq!(alphaid.encode(0), Ok(b"a".to_vec()));
+    /// assert_eq!(alphaid.encode(1), Ok(b"b".to_vec()));
+    /// assert_eq!(alphaid.encode(1350997667), Ok(b"90F7qb".to_vec()));
     /// ```
-    pub fn encode(&self, mut n: u128) -> Vec<u8> {
+    pub fn encode(&self, mut n: T) -> Result<Vec<u8>, AlphaIdError> {
         let mut out = vec![];
         let mut i = 0;
         loop {
             i += 1;
             if self.pad > 1 && self.pad == i {
-                n += 1;
+                n = n + T::one();
             }
 
-            if n == 0 {
+            if n.is_zero() {
                 if i <= self.pad {
                     out.push(self.chars[0]);
                     continue;
@@ -168,11 +185,11 @@ impl AlphaId {
             }
 
             let a = n % self.base;
-            out.push(self.chars[a as usize]);
+            out.push(self.chars[a.to_usize().ok_or_else(|| AlphaIdError::InvalidNumber)?]);
             n = n / self.base;
         }
 
-        out
+        Ok(out)
     }
 
     /// Decode into numbers.
@@ -182,59 +199,57 @@ impl AlphaId {
     /// ```rust
     /// use alphaid::AlphaId;
     ///
-    /// let alphaid = AlphaId::new();
+    /// let alphaid = AlphaId::<u32>::new();
     /// assert_eq!(alphaid.decode(b"a"), Ok(0));
     /// assert_eq!(alphaid.decode(b"b"), Ok(1));
-    /// assert_eq!(alphaid.decode(b"90F7qb"), Ok(1350997667)); 
+    /// assert_eq!(alphaid.decode(b"90F7qb"), Ok(1350997667));
     ///```
-    pub fn decode<V: AsRef<[u8]>>(&self, v: V) -> Result<u128, DecodeError> {
+    pub fn decode<V: AsRef<[u8]>>(&self, v: V) -> Result<T, AlphaIdError> {
         let v = v.as_ref();
-        let mut i = 0;
-        let mut n = 0;
+        let mut i: usize = 0;
+        let mut n = T::zero();
         let mut unpad = self.pad > 1;
-        let mut prev = 0;
+        let mut prev = T::zero();
+        let num63 = T::from_u32(63).unwrap();
 
-        while i < v.len() as u32 {
+        while i < v.len() {
             match self.index.get(&v[i as usize]) {
                 Some(t) => {
-                    let mut x = *t as u128;
+                    let mut x = *t;
 
-                    if unpad && i >= self.pad - 1 {
+                    if unpad && i + 1 >= self.pad as usize {
                         if i > 1 {
-                            n += self.base.pow(i - 1) * (63 - prev);
+                            n = n + num::pow(self.base, i - 1) * (num63 - prev);
                         }
 
-                        match x {
-                            0 => (),
-                            _ => {
-                                unpad = false;
-                                x -= 1;
-                            }
+                        if !x.is_zero() {
+                            unpad = false;
+                            x = x - T::one();
                         }
                     };
 
                     prev = *t;
 
-                    if x == 0 {
+                    if x.is_zero() {
                         i += 1;
                         continue;
                     }
 
-                    if i > self.max_pow_i {
-                        return Err(DecodeError::Overflow);
+                    if i > self.max_pow_i as usize {
+                        return Err(AlphaIdError::Overflow);
                     }
 
-                    let pow = self.base.pow(i);
-                    if u128::max_value() / pow < x {
-                        return Err(DecodeError::Overflow);
+                    let pow = num::pow(self.base, i);
+                    if T::max_value().div(pow) < x {
+                        return Err(AlphaIdError::Overflow);
                     }
                     let add = pow * x;
-                    if u128::max_value() - n < add {
-                        return Err(DecodeError::Overflow);
+                    if T::max_value() - n < add {
+                        return Err(AlphaIdError::Overflow);
                     }
-                    n += add;
+                    n = n + add;
                 }
-                None => return Err(DecodeError::UnexpectedChar),
+                None => return Err(AlphaIdError::UnexpectedChar),
             }
             i += 1;
         }
