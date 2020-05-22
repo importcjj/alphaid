@@ -7,7 +7,7 @@ readme = "README.md"
 license = "MIT/Apache-2.0"
 description = "Generate Youtube-Like IDs with Rust"
 repository = "https://github.com/importcjj/alphaid"
-keywords = ["encode", "decode", "youtube", "hex", "basex"]
+keywords = ["hashid", "youtube", "hex", "basex", "encoder-decoder"]
 documentation = "https://docs.rs/alphaid"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
